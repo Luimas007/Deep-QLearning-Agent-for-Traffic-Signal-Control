@@ -1,0 +1,34 @@
+# ===============================
+# Deep Q Traffic Light Control
+# Training & Replay Instructions
+# ===============================
+
+# 1. Activate virtual environment
+# (Linux / macOS)
+source .venv/bin/activate
+
+# (Windows)
+.venv\Scripts\activate
+
+
+# 2. Train the agent
+tlcs train --out-path model/run_1
+
+
+# 3. Test the trained agent (visual)
+# Make sure in settings/testing_settings.yaml -> gui: true
+tlcs test --model-path model/run_1 --test-name demo
+
+
+# 4. Watch BEST training episode
+cp Sumo_Trained_Simulations/best_episode.rou.xml intersection/episode_routes.rou.xml
+sumo-gui -c intersection/sumo_config.sumocfg
+
+
+# 5. Watch WORST training episode
+cp Sumo_Trained_Simulations/worst_episode.rou.xml intersection/episode_routes.rou.xml
+sumo-gui -c intersection/sumo_config.sumocfg
+
+
+# 6. Deactivate environment
+deactivate

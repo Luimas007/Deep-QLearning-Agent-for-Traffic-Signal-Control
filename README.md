@@ -1,30 +1,29 @@
 # Deep Q-Learning Agent for Traffic Signal Control
 
-A **PyTorch-based Deep Q-Learning agent** that learns to control a single 4-way intersection in **SUMO**. The project includes a configurable training pipeline, CLI, and plotting utilities to focus on experimentation and evaluation.
+> **Note:** this project was refactored in November 2025 to improve clarity and modernize the tooling. The previous version is available at [this commit](https://github.com/AndreaVidali/Deep-QLearning-Agent-for-Traffic-Signal-Control/tree/8ee45192c0ef6b3d43dd660505a38b5030b79be7).
 
-- **Agent**: epsilon-greedy DQN with experience replay and configurable fully connected network.
+A PyTorch-based Deep Q-Learning agent that learns to operate a single 4-way intersection in **SUMO**. The repo bundles a configurable training pipeline, a small CLI, and plotting utilities so you can focus on experimenting.
+
+- **Agent**: epsilon-greedy DQN with experience replay and a configurable fully connected network.
 - **Environment**: fixed SUMO intersection; state is 80 binary cells from discretized incoming lanes; 4 traffic-signal actions.
-- **Outputs**: trained model, settings copy, and plots for rewards, delay, and queue lengths.
-
----
+- **Outputs**: trained model, copied settings, and plots for rewards, delay, and queue lengths.
 
 ## Prerequisites
 
 - [uv](https://astral.sh/uv) installed.
-- Python 3.13 (managed via `uv`; see `pyproject.toml`).
-- SUMO installed and accessible via `sumo` / `sumo-gui` on your PATH. Set `SUMO_HOME` accordingly. [Official SUMO installation guide](https://sumo.dlr.de/docs/Installing/index.htm).
-- GPU is optional; CPU training is supported.
+- Python 3.13 (see `pyproject.toml`; you can manage Python versions directly via [uv](https://astral.sh/uv), which can download it for you).
+- SUMO installed and available via `sumo` / `sumo-gui` on your PATH. To do so, the environment variable `SUMO_HOME` must be set. For specific instructions, check out the [official installation page](https://sumo.dlr.de/docs/Installing/index.htm).
+- GPU is optional; the default configuration trains on CPU.
 
-> **macOS users:** Certain versions of SUMO-GUI with XQuartz may crash. See:
+> **Note:** as of November 2025, macOS Tahoe and SUMO-GUI have an issue that can crash the SUMO GUI. In particular, the bug lies with the XQuartz library. See:
 >
-> - [https://github.com/eclipse-sumo/sumo/issues/17272](https://github.com/eclipse-sumo/sumo/issues/17272)
-> - [https://github.com/XQuartz/XQuartz/issues/446](https://github.com/XQuartz/XQuartz/issues/446)
+> - https://github.com/eclipse-sumo/sumo/issues/17272
+> - https://github.com/XQuartz/XQuartz/issues/446
+> - https://github.com/XQuartz/XQuartz/issues/438#issuecomment-3350746279
 
----
+## Getting started
 
-## Installation
-
-Clone the repository and install dependencies:
+Clone the repo. Then from the project root, install the dependencies:
 
 ```bash
 uv sync
@@ -33,129 +32,130 @@ uv sync
 Activate the virtual environment:
 
 ```bash
-source .venv/bin/activate   # Windows: .venv\Scripts\activate
+source .venv/bin/activate   # on Windows: .venv\Scripts\activate
 ```
 
-Check CLI availability:
+To check if the installation was successful, verify that the CLI is available:
 
 ```bash
 tlcs --help
 ```
 
-Deactivate when finished:
+When you are finished, deactivate the virtual environment:
 
 ```bash
 deactivate
 ```
 
-Or run commands without activating:
+Alternatively, if you prefer not to activate the environment explicitly, you can run commands via uv:
 
 ```bash
 uv run tlcs --help
 ```
 
----
+## Train and test
 
-## Training and Testing
+Training and testing read YAML configuration from `settings/`. Both commands prompt before overwriting existing output folders.
 
-Training and testing read YAML configuration from `settings/`. Both prompt before overwriting existing outputs.
+- **Train** (defaults to `settings/training_settings.yaml`, writes to `model/`):
 
-**Train** (defaults to `settings/training_settings.yaml`, output to `model/`):
+  ```bash
+  tlcs train
+  # or choose a custom run folder
+  tlcs train --out-path model/run-01
+  ```
 
-```bash
-tlcs train
-tlcs train --out-path model/run-01
-```
+- **Test** a trained run (defaults to `settings/testing_settings.yaml`, writes to `model/<run>/test/`):
 
-**Test** a trained run (defaults to `settings/testing_settings.yaml`, output to `model/<run>/test/`):
+  ```bash
+  tlcs test --model-path model/run-01 --test-name foo
+  ```
 
-```bash
-tlcs test --model-path model/run-01 --test-name foo
-```
-
-Discover all options:
+Discover all options with:
 
 ```bash
 tlcs train --help
 tlcs test --help
 ```
 
----
+## The settings
 
-## Configuration
+Configs live in `settings/` and are validated at runtime.
 
-Settings live in `settings/`:
+`training_settings.yaml`
 
-**training_settings.yaml**
+- `gui`: run SUMO with (`true`) or without (`false`) the GUI.
+- `total_episodes`, `max_steps`, `n_cars_generated`: episode count, length, and traffic volume.
+- `green_duration`, `yellow_duration`: phase durations in seconds.
+- `turn_chance`: probability that a vehicle turns instead of going straight.
+- `num_layers`, `width_layers`: hidden layer count and width for the neural network.
+- `batch_size`, `learning_rate`, `training_epochs`: replay batch size, optimizer LR, and training passes per episode.
+- `memory_size_min`, `memory_size_max`: replay buffer warmup and capacity.
+- `gamma`: discount factor.
+- `sumocfg_file`: SUMO config path (defaults to `intersection/sumo_config.sumocfg`).
 
-- `gui`: run SUMO GUI (`true`) or headless (`false`)
-- `total_episodes`, `max_steps`, `n_cars_generated`: episode count, length, and traffic volume
-- `green_duration`, `yellow_duration`: phase durations in seconds
-- `turn_chance`: probability that a vehicle turns instead of going straight
-- `num_layers`, `width_layers`: neural network architecture
-- `batch_size`, `learning_rate`, `training_epochs`: optimizer and replay batch parameters
-- `memory_size_min`, `memory_size_max`: replay buffer warmup and capacity
-- `gamma`: discount factor
-- `sumocfg_file`: SUMO configuration path
+`testing_settings.yaml`
 
-**testing_settings.yaml**
+- Mirrors the simulation settings (`gui`, `max_steps`, `n_cars_generated`, `green_duration`, `yellow_duration`, `turn_chance`, `gamma`, `sumocfg_file`) plus:
+- `episode_seed`: deterministic route generation for a reproducible test episode.
 
-- Mirrors simulation settings plus `episode_seed` for reproducibility
+## What gets saved
 
----
+Each training run writes to the chosen output training folder:
 
-## Outputs
+- `trained_model.pt`: serialized PyTorch model.
+- `training_settings.yaml`: copy of the settings used.
+- `plot_reward.png`, `plot_delay.png`, `plot_queue.png` and matching `*_data.txt` files.
+- Testing outputs are saved within the training folder in a dedicated testing subfolder with reward and queue plots plus data.
 
-Each training run saves:
+## Project layout
 
-- `trained_model.pt`: PyTorch model
-- `training_settings.yaml`: settings copy
-- Plots: `plot_reward.png`, `plot_delay.png`, `plot_queue.png` + raw data
-- Testing outputs in `test/` subfolder with reward and queue plots
-
----
-
-## Project Structure
-
-```
-src/tlcs/
-├─ cli.py           # CLI for training/testing
-├─ main.py          # Training/testing orchestration
-├─ agent.py         # Epsilon-greedy policy
-├─ model.py         # Neural network definition
-├─ memory.py        # Replay buffer
-├─ env.py           # SUMO wrapper
-├─ generator.py     # Episode route generation
-├─ plots.py         # Plotting and data export
-intersection/       # SUMO assets (network, config, routes)
-settings/           # YAML configs for training/testing
-```
-
----
+- `src/tlcs/cli.py`: CLI exposing `tlcs train` and `tlcs test`.
+- `src/tlcs/main.py`: orchestrates training/testing loops and stats aggregation.
+- `src/tlcs/agent.py`, `model.py`, `memory.py`: epsilon-greedy policy, MLP, and replay buffer.
+- `src/tlcs/env.py`: SUMO wrapper (state extraction, reward, action execution).
+- `src/tlcs/generator.py`: per-episode route generation.
+- `src/tlcs/plots.py`: saves plots plus raw data.
+- `intersection/`: SUMO assets (`environment.net.xml`, `sumo_config.sumocfg`, generated `episode_routes.rou.xml`).
+- `settings/`: YAML configs for training and testing.
 
 ## Methodology
 
-### Scenario and State
+<p align="center">
+  <img src="media/env.png" width="420" alt="Intersection layout"/>
+</p>
+<p align="center">
+  <em>Intersection used in the experiments.</em>
+</p>
 
-- Single 4-way junction; each arm has 4 incoming lanes (750 m)
-- Lanes grouped by movement (left vs. straight/right) → **8 lane groups**
-- Each group discretized into **10 distance buckets** → **80 binary cells**
-- State vector: `1` if at least one vehicle occupies a cell, else `0`
+### Scenario and state
 
-### Actions and Signals
+- Single 4-way junction; each arm has four incoming lanes over 750 m.
+- Incoming lanes are grouped by movement (left vs. straight/right), creating **8 lane groups**.
+- Each group is discretized into **10 distance buckets** (closer to the light -> higher bucket index) for **80 binary cells** total.
+- State vector: length-80 array with `1` if at least one vehicle occupies a cell, else `0`.
 
-Four fixed green phases (yellow added automatically on changes):
+<p align="center">
+  <img src="media/fig_state_model.png" width="520" alt="State representation"/>
+</p>
+<p align="center">
+  <em>State encoding for one arm.</em>
+</p>
+
+### Actions and signals
+
+Four fixed green phases (yellow inserted automatically on phase changes):
 
 1. North-South straight/right
 2. North-South left
 3. East-West straight/right
 4. East-West left
 
-Durations controlled by `green_duration` and `yellow_duration`.
+`green_duration` and `yellow_duration` control how long each phase lasts.
 
 ### Reward
 
-Reward is the **change in cumulative waiting time**:
+Reward is the **change in cumulative waiting time** on incoming edges:
 
 ```
 reward = previous_total_wait - current_total_wait
@@ -163,38 +163,34 @@ reward = previous_total_wait - current_total_wait
 
 Reducing total wait yields positive reward.
 
-### Traffic Generation
+### Traffic generation
 
-- One route file per episode generated on the fly
-- Departure times follow Weibull distribution scaled to `[0, max_steps]`
-- `turn_chance` determines turn vs. straight routes
-- Seeds ensure reproducibility
+- One route file per episode generated on the fly.
+- Departure times follow a Weibull distribution scaled to `[0, max_steps]`.
+- `turn_chance` controls whether a vehicle draws from turning routes versus straight routes.
+- Seeds (episode index for training; `episode_seed` for testing) make runs reproducible.
 
-### Policy and Learning Loop
+### Policy and learning loop
 
-- Epsilon-greedy exploration: epsilon decays linearly from 1 → 0
-- Q-targets: `r + gamma * max_a' Q(next_state, a')`
-- Experience replay with warmup (`memory_size_min`) and capacity (`memory_size_max`)
-- Configurable MLP trained with MSE loss and Adam optimizer
+- Epsilon-greedy exploration: epsilon decays linearly from 1.0 to 0 over all training episodes.
+- Q-targets follow `r + gamma * max_a' Q(next_state, a')`.
+- Experience replay with warmup (`memory_size_min`) and bounded buffer (`memory_size_max`).
+- Neural network architecture configurable via `num_layers` and `width_layers`; trained with MSE loss and Adam.
 
-**Episode Loop:**
+For each episode:
 
-1. Generate routes
-2. Run SUMO until `max_steps`
-3. Collect transitions
-4. Push to replay buffer
-5. Train network for `training_epochs` batches
-6. Log and plot cumulative reward, delay, and queue lengths
-
----
+1. Generate routes.
+2. Run SUMO until `max_steps`.
+3. Collect transitions.
+4. Push to replay.
+5. run `training_epochs` replay batches.
+6. Log/plot cumulative negative reward, cumulative delay, and average queue length.
 
 ## Tips
 
-- Prefer headless mode (`gui: false`) for training; GUI for debugging/testing
-- CLI prompts before overwriting output folders
-
----
+- Prefer headless mode (`gui: false`) for training; enable the GUI only when debugging a run or for the testing phase.
+- If an output directory already exists, the CLI asks before overwriting it.
 
 ## License
 
-MIT – see `LICENSE`.
+MIT - see `LICENSE`.
